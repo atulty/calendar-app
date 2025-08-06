@@ -1,7 +1,6 @@
 package view.gui;
 
 import java.awt.BorderLayout;
-
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
@@ -13,42 +12,38 @@ import view.gui.components.CalendarSelector;
 import view.gui.components.MonthView;
 import view.gui.components.NavigationBar;
 import view.gui.utils.DialogUtils;
+import startapp.ai.AiIntegrationService;
 
 /**
  * The CalendarFrame class is the main JFrame window of the Calendar GUI
- * application.
- * It integrates and organizes various GUI components:
- * - NavigationBar (Top bar for navigation & actions).
- * - CalendarSelector (Left panel to select calendars).
- * - MonthView (Center panel showing month grid).
- * - Calendar information label (Bottom bar showing current calendar & timezone).
- * Responsibilities:
- * - Initialize the UI layout.
- * - Manage the default calendar creation.
- * - Handle month shifting logic and synchronize the view.
- * - Update calendar information dynamically when user switches calendars.
+ * application and now integrates an AI service for advanced features.
  */
 public class CalendarFrame extends JFrame {
   private final CommandParser parser;
   private final GUIControllerBridge bridge;
   private final IGUIView viewController;
+  private final AiIntegrationService aiService;
   private MonthView monthView;
   private JLabel calendarInfoLabel;
   private NavigationBar navBar;
 
   /**
-   * Constructs the main application window (CalendarFrame) and sets up
-   * the initial GUI components, controllers, and default calendar.
+   * Constructs the main application window, sets up GUI components,
+   * and wires in the AI service.
    *
    * @param parser          the CommandParser for parsing user commands
    * @param calendarManager the CalendarManager for calendar data operations
    * @param initialTimezone the initial timezone for the default calendar
+   * @param aiService       the AI integration service for summarization, suggestions, etc.
    */
-  public CalendarFrame(CommandParser parser, CalendarManager calendarManager,
-                       String initialTimezone) {
+  public CalendarFrame(CommandParser parser,
+                       CalendarManager calendarManager,
+                       String initialTimezone,
+                       AiIntegrationService aiService) {
     this.parser = parser;
     this.bridge = new GUIControllerBridge(parser, calendarManager);
     this.viewController = new GUIViewImpl(bridge, parser);
+    this.aiService = aiService;
 
     initializeUI();
 
@@ -56,20 +51,17 @@ public class CalendarFrame extends JFrame {
     try {
       bridge.createDefaultCalendar(initialTimezone);
     } catch (Exception e) {
-      DialogUtils.showOutputDialog("Error", "Failed to create default calendar: " +
-              e.getMessage());
+      DialogUtils.showOutputDialog("Error",
+              "Failed to create default calendar: " + e.getMessage());
     }
 
     updateCalendarInfo("Default", initialTimezone);
     updateNavigationBarMonth();
   }
 
-  public GUIControllerBridge getBridge() {
-    return bridge;
-  }
-
-  public IGUIView getViewController() {
-    return viewController;
+  // Expose AI service if needed elsewhere
+  public AiIntegrationService getAiService() {
+    return aiService;
   }
 
   private void initializeUI() {
@@ -92,6 +84,14 @@ public class CalendarFrame extends JFrame {
     mainPanel.add(calendarInfoLabel, BorderLayout.SOUTH);
 
     add(mainPanel);
+  }
+
+  public GUIControllerBridge getBridge() {
+    return bridge;
+  }
+
+  public IGUIView getViewController() {
+    return viewController;
   }
 
   public void updateCalendarInfo(String calendarName, String timezone) {
