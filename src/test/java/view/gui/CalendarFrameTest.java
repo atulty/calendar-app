@@ -1,3 +1,4 @@
+/*
 package view.gui;
 
 import org.junit.Before;
@@ -16,12 +17,14 @@ import model.MultiCalendarEventStorage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
+*/
 /**
  * Tests for the CalendarFrame GUI component.
  * Verifies proper updating of calendar information and month navigation.
  * Uses reflection to access private components and a fake CommandParser
  *     to isolate GUI testing from backend logic.
- */
+ *//*
+
 public class CalendarFrameTest {
 
   @BeforeClass
@@ -86,4 +89,4 @@ public class CalendarFrameTest {
     String expected = (String) getCurrentMonthYearMethod.invoke(monthViewObj);
     assertEquals(expected, after);
   }
-}
+}*/

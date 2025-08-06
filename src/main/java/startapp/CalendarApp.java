@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Scanner;
-
 import javax.swing.SwingUtilities;
 
 import controller.CommandParser;
@@ -13,27 +12,38 @@ import model.CalendarManager;
 import model.MultiCalendarEventStorage;
 import view.gui.CalendarFrame;
 
+import startapp.ai.AiIntegrationService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
 /**
  * Main application class for the Calendar system that supports interactive,
- * headless, and GUI modes of operation.
+ * headless, and GUI modes of operation, now powered by Spring Boot and Spring AI.
  */
-public class CalendarApp {
-  /**
-   * Main entry point for the Calendar application.
-   *
-   * @param args Command line arguments specifying the mode of operation
-   * @throws InvalidCommandException if an invalid command is encountered
-   */
+@SpringBootApplication
+public class CalendarApp implements CommandLineRunner {
+
+  @Autowired
+  private AiIntegrationService aiService;
+
   public static void main(String[] args) throws InvalidCommandException {
-    if (args.length == 0) {
-      // GUI mode when no arguments provided
+    SpringApplication.run(CalendarApp.class, args);
+  }
+
+  /**
+   * After Spring Boot context is initialized, routes to appropriate mode.
+   */
+  @Override
+  public void run(String... args) throws Exception {
+    if (args.length == 0 || "gui".equalsIgnoreCase(args[0])) {
       runGUIMode();
       return;
     }
 
-    if (args.length < 2 || !args[0].equals("--mode")) {
-      System.out.println("Usage: java CalendarApp [--mode interactive | " +
-              "--mode headless <filename>]");
+    if (args.length < 2 || !"--mode".equals(args[0])) {
+      System.out.println("Usage: --mode [interactive|headless <filename>|gui]");
       return;
     }
 
@@ -49,25 +59,23 @@ public class CalendarApp {
         }
         runHeadlessMode(args[2]);
         break;
-      case "gui":
-        runGUIMode();
-        break;
       default:
         System.out.println("Error: Invalid mode. Use 'interactive', 'headless', or 'gui'.");
     }
   }
 
   /**
-   * Runs the application in GUI mode.
+   * Runs the application in GUI mode, injecting the AI service into the frame.
    */
-  private static void runGUIMode() {
-
+  private void runGUIMode() {
     SwingUtilities.invokeLater(() -> {
       try {
         MultiCalendarEventStorage storage = new MultiCalendarEventStorage();
         CalendarManager manager = new CalendarManager(storage);
         CommandParser parser = new CommandParser(manager);
-        new CalendarFrame(parser, manager, "America/New_York").setVisible(true);
+        // Pass AiIntegrationService into GUI
+        new CalendarFrame(parser, manager, "America/New_York", aiService)
+                .setVisible(true);
       } catch (Exception e) {
         System.err.println("Failed to initialize GUI: " + e.getMessage());
         e.printStackTrace();
@@ -77,15 +85,13 @@ public class CalendarApp {
 
   /**
    * Runs the application in interactive mode, accepting commands from user input.
-   *
-   * @throws InvalidCommandException if an invalid command is entered
    */
-  private static void runInteractiveMode() throws InvalidCommandException {
-    MultiCalendarEventStorage multiCalendarEventStorage = new MultiCalendarEventStorage();
-    CalendarManager calendarManager = new CalendarManager(multiCalendarEventStorage);
-    CommandParser commandParser = new CommandParser(calendarManager);
-
+  private void runInteractiveMode() throws InvalidCommandException {
+    MultiCalendarEventStorage storage = new MultiCalendarEventStorage();
+    CalendarManager manager = new CalendarManager(storage);
+    CommandParser parser = new CommandParser(manager);
     Scanner inputScanner = new Scanner(System.in);
+
     while (true) {
       System.out.print("Enter command: ");
       String userCommand = inputScanner.nextLine().trim();
@@ -95,7 +101,8 @@ public class CalendarApp {
         break;
       }
 
-      if (!commandParser.executeCommand(userCommand)) {
+      // You can invoke AI features here via aiService if desired
+      if (!parser.executeCommand(userCommand)) {
         System.out.println("Command failed: " + userCommand);
       }
     }
@@ -103,13 +110,11 @@ public class CalendarApp {
 
   /**
    * Runs the application in headless mode, reading commands from a file.
-   *
-   * @param inputFilename The name of the file containing commands to execute
    */
-  private static void runHeadlessMode(String inputFilename) {
-    MultiCalendarEventStorage multiCalendarEventStorage = new MultiCalendarEventStorage();
-    CalendarManager calendarManager = new CalendarManager(multiCalendarEventStorage);
-    CommandParser commandParser = new CommandParser(calendarManager);
+  private void runHeadlessMode(String inputFilename) {
+    MultiCalendarEventStorage storage = new MultiCalendarEventStorage();
+    CalendarManager manager = new CalendarManager(storage);
+    CommandParser parser = new CommandParser(manager);
 
     try (BufferedReader fileReader = new BufferedReader(new FileReader(inputFilename))) {
       String fileCommand;
@@ -121,7 +126,7 @@ public class CalendarApp {
         }
 
         try {
-          if (!commandParser.executeCommand(fileCommand)) {
+          if (!parser.executeCommand(fileCommand)) {
             System.out.println("Command failed: " + fileCommand);
           }
         } catch (InvalidCommandException e) {
