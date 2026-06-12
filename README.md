@@ -1,4 +1,79 @@
-# Group Project
+# Smart Calender Project
+
+# AI Features (Spring AI + OpenAI)
+
+The calendar includes an AI layer built on **Spring AI** and the **OpenAI API**:
+
+- **Event summaries** — natural-language one-line summaries of an event via an LLM.
+- **Semantic event search** — a "find similar events" feature that ranks events by meaning rather than keywords, using OpenAI embeddings.
+
+## How it works
+
+`startapp.ai.AiIntegrationService` is the entry point:
+
+- `summarizeEvent(text)` uses a Spring AI `ChatClient`.
+- `indexEvents(events)` embeds each event (subject + description + location) via the `EmbeddingModel`.
+- `findSimilar(query, k)` embeds the query and returns the top-k events ranked by **cosine similarity**.
+
+Details:
+
+- The vector index is **in-memory** and rebuilt on each run.
+- Indexing embeds events **concurrently using Java 21 virtual threads** (`Executors.newVirtualThreadPerTaskExecutor()`). Each embedding is a blocking OpenAI HTTP call, so virtual threads let them run in parallel without tying up a large thread pool.
+
+## Requirements & configuration
+
+- **JDK 21+** (required for virtual threads). The pom sets `<java.version>21</java.version>`.
+- Set your OpenAI key:
+  ```bash
+  export OPENAI_API_KEY=sk-...
+  ```
+- `src/main/resources/application.yml` configures Spring AI (API key, connect/read timeouts).
+
+## Running the AI features
+
+The AI runners are gated behind program arguments so they don't interfere with the normal GUI / interactive / headless modes.
+
+**Semantic-search demo** — indexes a sample set of events, runs a few queries, and prints the ranked matches:
+```bash
+mvn spring-boot:run -Dspring-boot.run.arguments=ai-demo
+```
+
+**Evaluation** — measures retrieval quality (see below):
+```bash
+mvn spring-boot:run -Dspring-boot.run.arguments=ai-eval
+```
+
+> Note: `CalendarApp` also routes command-line modes, so passing `ai-demo` / `ai-eval` prints a harmless `Usage: ...` line before the AI output. The AI output follows it.
+
+## Retrieval evaluation harness
+
+Package `startapp.ai.eval` measures how well semantic search ranks results, against a hand-labeled query set.
+
+- **Metrics** (binary relevance): precision@k, recall@k, MRR, nDCG.
+- **`RetrievalMetrics`** — the metric implementations.
+- **`RetrievalMetricsTest`** — JUnit unit tests for the metric logic. These run **for free**, no OpenAI calls:
+  ```bash
+  mvn test
+  ```
+- **`EventSearchEvaluator`** — runs a labeled query set through `findSimilar` and aggregates the metrics.
+- **Ground truth**: `src/main/resources/event-search-ground-truth.json` maps each query to its relevant event IDs. Event IDs are of the form `subject@startDateTime`.
+
+The `ai-eval` run prints a summary plus a per-query breakdown:
+```
+Retrieval evaluation @k=3 over 25 queries
+  Precision@3 : 0.84
+  Recall@3    : 0.86
+  MRR         : 0.88
+  nDCG@3      : 0.91
+```
+(Run it to populate the real values — they aren't hardcoded.)
+
+> Design note: the metric unit tests are CI-safe because they make no API calls. The `ai-eval` run hits OpenAI, so it's an **integration check, not a unit test** — paid API calls shouldn't fire on every CI push.
+
+## Limitations / next steps
+
+- The demo indexes a **hardcoded** event set and the index is **in-memory** (not persisted). For persistence, swap in Spring AI's `SimpleVectorStore` (file-backed) or a vector database such as **pgvector**.
+- When indexing large event sets, bound the virtual-thread executor with a `Semaphore` to cap concurrent OpenAI calls and stay under rate limits.
 
 ### Run Procedure
 
