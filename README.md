@@ -1,4 +1,62 @@
-# Smart Calender Project
+# Smart Calendar
+
+> A solo MS CS portfolio project. I'm independently extending a Java calendar app into an AI-powered, multi-user scheduling **service** — the AI layer, the evaluation harness, and the roadmap below are my individual work. *(The original desktop-calendar core began as a CS5010 group project; see [Contributions](#contributions).)*
+
+## Roadmap — what I'm building next
+
+A solo learning roadmap, framed as agile epics → user stories with acceptance criteria (AC). I use the agile structure to keep the work scoped and honest about what's shipped versus planned — it's a one-person project, not a team effort.
+
+**At a glance**
+
+| Epic | Stage |
+|------|-------|
+| AI semantic search & LLM summaries (Spring AI) | Done |
+| Retrieval-quality evaluation harness (precision@k, MRR, nDCG) | Done |
+| 1 — Calendar → multi-user service | **Now** |
+| 2 — Concurrent booking & conflict detection at scale | Next |
+| 3 — Horizontal scale & infrastructure | Later |
+| 4 — Real-time multi-user sync | Stretch |
+
+### Epic 1 — From desktop app to a multi-user service · *Now*
+
+**Goal:** turn the in-memory desktop app into a persistent, multi-user backend service.
+
+- *As a user,* I want my events stored durably so they survive restarts. — **AC:** events persisted in PostgreSQL; in-memory lists removed.
+- *As an API client,* I want a REST API so I can manage events programmatically. — **AC:** CRUD endpoints for events and calendars, documented with OpenAPI.
+- *As a user,* I want an account and multiple calendars so my data is isolated and organized. — **AC:** user model + authentication; every event scoped to a user and calendar.
+
+### Epic 2 — Concurrent booking & conflict detection at scale · *Next*
+
+**Goal:** handle concurrent bookings correctly and detect scheduling conflicts efficiently as data grows (the same problem family as seat/ticket reservation).
+
+- *As two users booking the same slot at once,* I want the overlap rejected so double-booking is impossible. — **AC:** concurrent overlapping bookings cannot both succeed, enforced via optimistic locking (a version column) and a PostgreSQL `tstzrange` + GiST **exclusion constraint** at the database level.
+- *As the system,* I want conflict detection to stay fast as the event count grows. — **AC:** `O(log n)` conflict checks via a GiST range index; verified at 10k / 100k / 1M events.
+- *As the developer,* I want performance measured, not assumed. — **AC:** Gatling load tests report p95/p99 latency and booking throughput under concurrent contention, published in this README.
+
+### Epic 3 — Horizontal scale & infrastructure · *Later*
+
+**Goal:** show the service scales horizontally and handles read-heavy load — all runnable locally for free.
+
+- Run multiple stateless instances behind an **Nginx** load balancer on a shared Postgres, with concurrent requests handled on Java 21 virtual threads.
+- Add a **Redis** cache on hot read paths (a user's upcoming events).
+- Back semantic search with **pgvector**, replacing the in-memory index.
+- *(Stretch)* shard events by `user_id`. — **AC:** horizontal-scaling benchmarks (p95/p99 across instances) published.
+
+### Epic 4 — Real-time multi-user sync · *Stretch*
+
+**Goal:** live collaboration on shared calendars.
+
+- *As a collaborator,* I want to see others' changes immediately on a shared calendar. — **AC:** WebSocket push on change; eventual consistency across connected clients.
+
+**My definition of done (per epic)**
+
+- Automated tests pass in CI.
+- For performance epics, benchmark numbers are published in this README.
+- The full stack runs locally via a single `docker compose up` (Postgres + pgvector, Redis, Nginx, app instances) — no paid cloud required.
+
+> **A note on the numbers:** targets such as `O(log n)` conflict detection and p95/p99 latency are **acceptance criteria for planned work** — I'll back them with published benchmarks as each epic lands, not claim them before they're measured.
+
+---
 
 # AI Features (Spring AI + OpenAI)
 
@@ -334,6 +392,8 @@ Create Event, and the Model and View for Print. For part 2 implemented the clear
 
 
 **Testing:** Code testing was shared mutually across both contributors.
+
+> Note: the AI layer (Spring AI semantic search, summaries), the retrieval evaluation harness, and the roadmap above are my (Atul's) individual work, added after the original group assignment.
 
 ###All the features are working
 
@@ -716,13 +776,13 @@ Both the start and end date-times are displayed to avoid ambiguity. For example,
 We use JUnit to verify the controller logic and command generation rather than the visual rendering of GUI components. This allows us to ensure that the controller behaves correctly in response to user actions without needing to simulate actual button clicks or UI interactions.
 
 •	GUI Component Testing Limitations:
-Classes like CreateCalendarDialog depend on Swing for rendering, which is managed by the underlying UI framework. Since our primary goal is to test business logic, we isolate and test the backend functionality using dummy objects and reflection, rather than testing the GUI’s visual output.
+Classes like CreateCalendarDialog depend on Swing for rendering, which is managed by the underlying UI framework. Since our primary goal is to test business logic, we isolate and test the backend functionality using dummy objects and reflection, rather than testing the GUI's visual output.
 
 •	GUIControllerBridge Mutation Coverage:
 The GUIControllerBridge.java has been thoroughly tested with mutation testing to confirm that it reacts correctly to simulated events, ensuring that commands are executed as expected.
 
 •	**PIT Mutation Testing Note**:
-When running PIT mutation tests, if any pop-up dialogs (e.g., “Event created successfully”) appear, simply click “OK.” These dialogs require no input and do not affect the outcome of the tests.
+When running PIT mutation tests, if any pop-up dialogs (e.g., "Event created successfully") appear, simply click "OK." These dialogs require no input and do not affect the outcome of the tests.
 Rebuild project if pit test fails, maybe due to thread.sleep() in test testGUIModeInvocationCount()
 Pit Configration Required :
 ```
